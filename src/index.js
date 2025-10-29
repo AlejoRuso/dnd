@@ -3,9 +3,11 @@ import './styles/main.css';
 class TrelloClone {
     constructor() {
         this.columns = ['todo', 'inProgress', 'done'];
-        this.APP_VERSION = '1.2';
+        this.APP_VERSION = '1.5';
         this.state = this.loadState();
         this.addingCardColumn = null;
+        this.boundClickHandler = null;
+        this.boundKeyHandler = null;
         this.init();
     }
 
@@ -34,7 +36,7 @@ class TrelloClone {
     getInitialState() {
         return {
             todo: [
-                { id: 1, text: 'Добро пожаловать!' },
+                { id: 1, text: 'Добро пожаловать' },
                 { id: 2, text: 'Это карточка 1' },
                 { id: 3, text: 'Это карточка 2' }
             ],
@@ -79,7 +81,6 @@ class TrelloClone {
                 <h2>${columnTitles[columnId]}</h2>
                 <div class="cards-container" data-column="${columnId}">
                     ${this.state[columnId].map(card => this.renderCard(card)).join('')}
-                    <div class="drop-zone-end" data-column="${columnId}"></div>
                 </div>
                 ${isAdding ? this.renderAddCardForm(columnId) : this.renderAddCardButton(columnId)}
             </div>
@@ -116,8 +117,12 @@ class TrelloClone {
     }
 
     setupEventListeners() {
-        document.removeEventListener('click', this.boundClickHandler);
-        document.removeEventListener('keydown', this.boundKeyHandler);
+        if (this.boundClickHandler) {
+            document.removeEventListener('click', this.boundClickHandler);
+        }
+        if (this.boundKeyHandler) {
+            document.removeEventListener('keydown', this.boundKeyHandler);
+        }
         
         this.boundClickHandler = this.handleClick.bind(this);
         this.boundKeyHandler = this.handleKeydown.bind(this);
@@ -173,7 +178,9 @@ class TrelloClone {
             const form = document.querySelector('.add-card-form');
             if (form) {
                 const textarea = form.querySelector('.card-input');
-                if (textarea) textarea.focus();
+                if (textarea) {
+                    textarea.focus();
+                }
             }
         }, 0);
     }
@@ -186,10 +193,14 @@ class TrelloClone {
 
     handleAddCardSubmit(columnId) {
         const form = document.querySelector(`.add-card-form[data-column="${columnId}"]`);
-        if (!form) return;
+        if (!form) {
+            return;
+        }
 
         const textarea = form.querySelector('.card-input');
-        if (!textarea) return;
+        if (!textarea) {
+            return;
+        }
 
         const text = textarea.value.trim();
         
@@ -210,9 +221,9 @@ class TrelloClone {
     }
 
     handleDeleteCard(cardId) {
-        cardId = parseInt(cardId);
-        for (let column of this.columns) {
-            const index = this.state[column].findIndex(card => card.id === cardId);
+        const parsedCardId = parseInt(cardId, 10);
+        for (const column of this.columns) {
+            const index = this.state[column].findIndex(card => card.id === parsedCardId);
             if (index !== -1) {
                 this.state[column].splice(index, 1);
                 break;
@@ -226,7 +237,6 @@ class TrelloClone {
     setupDragAndDrop() {
         const cards = document.querySelectorAll('.card');
         const containers = document.querySelectorAll('.cards-container');
-        const dropZones = document.querySelectorAll('.drop-zone-end');
         
         let draggedCard = null;
         let sourceColumn = null;
@@ -241,131 +251,64 @@ class TrelloClone {
                 document.body.style.cursor = 'grabbing';
             });
 
-            card.addEventListener('dragend', (e) => {
+            card.addEventListener('dragend', () => {
                 if (draggedCard) {
                     draggedCard.classList.remove('dragging');
                 }
                 document.body.style.cursor = 'default';
                 
-                // Убираем все плейсхолдеры
                 document.querySelectorAll('.card-ghost').forEach(el => el.remove());
-                document.querySelectorAll('.drop-zone-end').forEach(el => {
-                    el.style.backgroundColor = '';
-                    el.style.borderColor = '';
-                });
-                
                 draggedCard = null;
                 sourceColumn = null;
             });
         });
 
-        // Обработка перетаскивания над карточками
         containers.forEach(container => {
             container.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                if (!draggedCard) return;
+                if (!draggedCard) {
+                    return;
+                }
 
                 const afterElement = this.getDragAfterElement(container, e.clientY);
-                const dropZone = container.querySelector('.drop-zone-end');
                 
-                // Убираем подсветку с дроп-зоны
-                dropZone.style.backgroundColor = '';
-                dropZone.style.borderColor = '';
-                
-                // Убираем старые плейсхолдеры
                 container.querySelectorAll('.card-ghost').forEach(el => el.remove());
                 
-                // Вставляем плейсхолдер в нужную позицию
-                if (afterElement) {
+                if (container.children.length === 0) {
+                    container.appendChild(this.createGhostElement());
+                } else if (afterElement) {
                     container.insertBefore(this.createGhostElement(), afterElement);
+                } else {
+                    container.appendChild(this.createGhostElement());
                 }
             });
 
             container.addEventListener('drop', (e) => {
                 e.preventDefault();
-                if (!draggedCard) return;
+                if (!draggedCard) {
+                    return;
+                }
 
                 const afterElement = this.getDragAfterElement(container, e.clientY);
                 const targetColumn = container.dataset.column;
                 
-                const cardId = parseInt(draggedCard.dataset.cardId);
+                const cardId = parseInt(draggedCard.dataset.cardId, 10);
                 const cardText = draggedCard.querySelector('.card-text').textContent;
                 
-                // Удаляем карточку из исходной колонки
-                this.state[sourceColumn] = this.state[sourceColumn].filter(card => card.id !== cardId);
-                
-                // Добавляем карточку в целевую колонку
-                const newCard = { id: cardId, text: cardText };
-                
-                if (afterElement && !afterElement.classList.contains('drop-zone-end')) {
-                    const afterCardId = parseInt(afterElement.dataset.cardId);
-                    const afterIndex = this.state[targetColumn].findIndex(card => card.id === afterCardId);
-                    this.state[targetColumn].splice(afterIndex, 0, newCard);
-                } else {
-                    // Если afterElement - это дроп-зона или null, добавляем в конец
-                    this.state[targetColumn].push(newCard);
-                }
+                this.removeCardFromState(cardId);
+                this.addCardToState(cardId, cardText, targetColumn, afterElement);
                 
                 this.saveState();
                 this.renderBoard();
                 this.setupEventListeners();
-            });
-        });
-
-        // Обработка перетаскивания над дроп-зонами (в конец списка)
-        dropZones.forEach(dropZone => {
-            dropZone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                if (!draggedCard) return;
-
-                const container = dropZone.parentElement;
-                const cards = container.querySelectorAll('.card:not(.dragging)');
                 
-                // Убираем все плейсхолдеры
-                container.querySelectorAll('.card-ghost').forEach(el => el.remove());
-                
-                // Подсвечиваем дроп-зону
-                dropZone.style.backgroundColor = 'rgba(9,30,66,.08)';
-                dropZone.style.borderColor = 'rgba(9,30,66,.4)';
-                
-                // Если есть карточки, вставляем плейсхолдер перед дроп-зоной
-                if (cards.length > 0) {
-                    const lastCard = cards[cards.length - 1];
-                    container.insertBefore(this.createGhostElement(), dropZone);
-                }
-            });
-
-            dropZone.addEventListener('dragleave', (e) => {
-                // Сбрасываем подсветку при уходе с дроп-зоны
-                if (!dropZone.contains(e.relatedTarget)) {
-                    dropZone.style.backgroundColor = '';
-                    dropZone.style.borderColor = '';
-                }
-            });
-
-            dropZone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                if (!draggedCard) return;
-
-                const targetColumn = dropZone.dataset.column;
-                const cardId = parseInt(draggedCard.dataset.cardId);
-                const cardText = draggedCard.querySelector('.card-text').textContent;
-                
-                // Удаляем карточку из исходной колонки
-                this.state[sourceColumn] = this.state[sourceColumn].filter(card => card.id !== cardId);
-                
-                // Добавляем карточку в конец целевой колонки
-                this.state[targetColumn].push({ id: cardId, text: cardText });
-                
-                this.saveState();
-                this.renderBoard();
-                this.setupEventListeners();
+                document.querySelectorAll('.card-ghost').forEach(el => el.remove());
             });
         });
     }
 
     getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.card:not(.dragging), .drop-zone-end')];
+        const draggableElements = [...container.querySelectorAll('.card:not(.dragging)')];
         
         return draggableElements.reduce((closest, child) => {
             const box = child.getBoundingClientRect();
@@ -383,6 +326,24 @@ class TrelloClone {
         const ghost = document.createElement('div');
         ghost.className = 'card-ghost';
         return ghost;
+    }
+
+    removeCardFromState(cardId) {
+        for (const column of this.columns) {
+            this.state[column] = this.state[column].filter(card => card.id !== cardId);
+        }
+    }
+
+    addCardToState(cardId, text, targetColumn, afterElement) {
+        const newCard = { id: cardId, text: text };
+        
+        if (afterElement) {
+            const afterCardId = parseInt(afterElement.dataset.cardId, 10);
+            const afterIndex = this.state[targetColumn].findIndex(card => card.id === afterCardId);
+            this.state[targetColumn].splice(afterIndex, 0, newCard);
+        } else {
+            this.state[targetColumn].push(newCard);
+        }
     }
 }
 
