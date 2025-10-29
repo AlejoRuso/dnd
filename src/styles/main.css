@@ -1,0 +1,145 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: #0079bf;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+.board {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.column {
+    background-color: #ebecf0;
+    border-radius: 3px;
+    padding: 10px;
+    width: 300px;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+.column h2 {
+    margin-bottom: 15px;
+    font-size: 16px;
+    color: #172b4d;
+    padding: 0 5px;
+}
+
+.cards-container {
+    flex: 1;
+    min-height: 100px;
+}
+
+.card {
+    background-color: white;
+    border-radius: 3px;
+    padding: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 0 rgba(9,30,66,.25);
+    cursor: grab;
+    position: relative;
+}
+
+.card:hover .delete-card {
+    display: block;
+}
+
+.delete-card {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    cursor: pointer;
+    display: none;
+    font-size: 16px;
+    color: #6b778c;
+}
+
+.delete-card:hover {
+    color: #eb5a46;
+}
+
+.add-card-btn {
+    background: none;
+    border: none;
+    color: #6b778c;
+    cursor: pointer;
+    padding: 5px;
+    width: 100%;
+    text-align: left;
+    border-radius: 3px;
+    margin-top: 10px;
+}
+
+.add-card-btn:hover {
+    background-color: rgba(9,30,66,.08);
+    color: #172b4d;
+}
+
+.add-card-form {
+    background: #ebecf0;
+    padding: 10px;
+    border-radius: 3px;
+    margin-top: 10px;
+}
+
+.card-input {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid #0079bf;
+    border-radius: 3px;
+    margin-bottom: 10px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.add-card-actions {
+    display: flex;
+    align-items: center;
+}
+
+.add-card-submit {
+    background-color: #0079bf;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    padding: 8px 16px;
+    cursor: pointer;
+    margin-right: 10px;
+    font-size: 14px;
+}
+
+.add-card-submit:hover {
+    background-color: #026aa7;
+}
+
+.add-card-cancel {
+    cursor: pointer;
+    color: #6b778c;
+    font-size: 20px;
+    line-height: 1;
+}
+
+.add-card-cancel:hover {
+    color: #172b4d;
+}
+
+.card.dragging {
+    opacity: 0.8;
+    cursor: grabbing;
+}
+
+.card-ghost {
+    background-color: rgba(9,30,66,.08);
+    border-radius: 3px;
+    margin-bottom: 10px;
+    height: 40px;
+}

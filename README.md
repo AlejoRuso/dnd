@@ -1,0 +1,2 @@
+[![Build Status](https://github.com/AlejoRuso/dnd/actions/workflows/deploy.yml/badge.svg)](https://github.com/AlejoRuso/dnd/actions)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen)](https://AlejoRuso.github.io/dnd)
