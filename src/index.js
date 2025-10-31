@@ -6,8 +6,14 @@ class TrelloClone {
         this.APP_VERSION = '1.5';
         this.state = this.loadState();
         this.addingCardColumn = null;
+        this.draggedCard = null;
+        this.sourceColumn = null;
         this.boundClickHandler = null;
         this.boundKeyHandler = null;
+        this.boundDragStartHandler = this.handleDragStart.bind(this);
+        this.boundDragEndHandler = this.handleDragEnd.bind(this);
+        this.boundDragOverHandler = this.handleDragOver.bind(this);
+        this.boundDropHandler = this.handleDrop.bind(this);
         this.init();
     }
 
@@ -117,6 +123,7 @@ class TrelloClone {
     }
 
     setupEventListeners() {
+        // Удаляем старые обработчики
         if (this.boundClickHandler) {
             document.removeEventListener('click', this.boundClickHandler);
         }
@@ -124,13 +131,97 @@ class TrelloClone {
             document.removeEventListener('keydown', this.boundKeyHandler);
         }
         
+        // Назначаем новые обработчики
         this.boundClickHandler = this.handleClick.bind(this);
         this.boundKeyHandler = this.handleKeydown.bind(this);
         
         document.addEventListener('click', this.boundClickHandler);
         document.addEventListener('keydown', this.boundKeyHandler);
 
-        this.setupDragAndDrop();
+        // Используем делегирование событий для drag and drop
+        this.setupDragAndDropDelegation();
+    }
+
+    setupDragAndDropDelegation() {
+        const board = document.querySelector('.board');
+        
+        // Удаляем старые обработчики
+        board.removeEventListener('dragstart', this.boundDragStartHandler);
+        board.removeEventListener('dragend', this.boundDragEndHandler);
+        board.removeEventListener('dragover', this.boundDragOverHandler);
+        board.removeEventListener('drop', this.boundDropHandler);
+
+        // Назначаем новые обработчики
+        board.addEventListener('dragstart', this.boundDragStartHandler);
+        board.addEventListener('dragend', this.boundDragEndHandler);
+        board.addEventListener('dragover', this.boundDragOverHandler);
+        board.addEventListener('drop', this.boundDropHandler);
+    }
+
+    handleDragStart(e) {
+        if (e.target.classList.contains('card')) {
+            const card = e.target;
+            this.draggedCard = card;
+            this.sourceColumn = card.closest('.cards-container').dataset.column;
+            setTimeout(() => card.classList.add('dragging'), 0);
+            e.dataTransfer.effectAllowed = 'move';
+            
+            document.body.style.cursor = 'grabbing';
+        }
+    }
+
+    handleDragEnd(e) {
+        if (this.draggedCard) {
+            this.draggedCard.classList.remove('dragging');
+        }
+        document.body.style.cursor = 'default';
+        
+        document.querySelectorAll('.card-ghost').forEach(el => el.remove());
+        this.draggedCard = null;
+        this.sourceColumn = null;
+    }
+
+    handleDragOver(e) {
+        e.preventDefault();
+        if (!this.draggedCard) return;
+
+        const container = e.target.closest('.cards-container');
+        if (!container) return;
+
+        const afterElement = this.getDragAfterElement(container, e.clientY);
+        
+        container.querySelectorAll('.card-ghost').forEach(el => el.remove());
+        
+        if (container.children.length === 0) {
+            container.appendChild(this.createGhostElement());
+        } else if (afterElement) {
+            container.insertBefore(this.createGhostElement(), afterElement);
+        } else {
+            container.appendChild(this.createGhostElement());
+        }
+    }
+
+    handleDrop(e) {
+        e.preventDefault();
+        if (!this.draggedCard) return;
+
+        const container = e.target.closest('.cards-container');
+        if (!container) return;
+
+        const afterElement = this.getDragAfterElement(container, e.clientY);
+        const targetColumn = container.dataset.column;
+        
+        const cardId = parseInt(this.draggedCard.dataset.cardId, 10);
+        const cardText = this.draggedCard.querySelector('.card-text').textContent;
+        
+        this.removeCardFromState(cardId);
+        this.addCardToState(cardId, cardText, targetColumn, afterElement);
+        
+        this.saveState();
+        this.renderBoard();
+        this.setupEventListeners();
+        
+        document.querySelectorAll('.card-ghost').forEach(el => el.remove());
     }
 
     handleClick(e) {
@@ -232,79 +323,6 @@ class TrelloClone {
         this.saveState();
         this.renderBoard();
         this.setupEventListeners();
-    }
-
-    setupDragAndDrop() {
-        const cards = document.querySelectorAll('.card');
-        const containers = document.querySelectorAll('.cards-container');
-        
-        let draggedCard = null;
-        let sourceColumn = null;
-
-        cards.forEach(card => {
-            card.addEventListener('dragstart', (e) => {
-                draggedCard = card;
-                sourceColumn = card.closest('.cards-container').dataset.column;
-                setTimeout(() => card.classList.add('dragging'), 0);
-                e.dataTransfer.effectAllowed = 'move';
-                
-                document.body.style.cursor = 'grabbing';
-            });
-
-            card.addEventListener('dragend', () => {
-                if (draggedCard) {
-                    draggedCard.classList.remove('dragging');
-                }
-                document.body.style.cursor = 'default';
-                
-                document.querySelectorAll('.card-ghost').forEach(el => el.remove());
-                draggedCard = null;
-                sourceColumn = null;
-            });
-        });
-
-        containers.forEach(container => {
-            container.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                if (!draggedCard) {
-                    return;
-                }
-
-                const afterElement = this.getDragAfterElement(container, e.clientY);
-                
-                container.querySelectorAll('.card-ghost').forEach(el => el.remove());
-                
-                if (container.children.length === 0) {
-                    container.appendChild(this.createGhostElement());
-                } else if (afterElement) {
-                    container.insertBefore(this.createGhostElement(), afterElement);
-                } else {
-                    container.appendChild(this.createGhostElement());
-                }
-            });
-
-            container.addEventListener('drop', (e) => {
-                e.preventDefault();
-                if (!draggedCard) {
-                    return;
-                }
-
-                const afterElement = this.getDragAfterElement(container, e.clientY);
-                const targetColumn = container.dataset.column;
-                
-                const cardId = parseInt(draggedCard.dataset.cardId, 10);
-                const cardText = draggedCard.querySelector('.card-text').textContent;
-                
-                this.removeCardFromState(cardId);
-                this.addCardToState(cardId, cardText, targetColumn, afterElement);
-                
-                this.saveState();
-                this.renderBoard();
-                this.setupEventListeners();
-                
-                document.querySelectorAll('.card-ghost').forEach(el => el.remove());
-            });
-        });
     }
 
     getDragAfterElement(container, y) {
